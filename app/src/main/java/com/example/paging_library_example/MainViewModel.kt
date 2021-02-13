@@ -1,22 +1,20 @@
 package com.example.paging_library_example
 
-import androidx.lifecycle.*
-import androidx.paging.LivePagedListBuilder
-import androidx.paging.PagedList
+import androidx.paging.*
 import com.example.paging_library_example.api.Contents
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.map
 
 class MainViewModel {
 
-    private val config = PagedList.Config.Builder()
-        .setInitialLoadSizeHint(20)
-        .setPageSize(10)
-        .setPrefetchDistance(5)
-        .setEnablePlaceholders(false)
-        .build()
+    private val _pagingData = Pager( PagingConfig(pageSize = 20) ){
+        LocalDataSource() // pagingSource 연결
+    }.flow
+        .cachedIn(CoroutineScope(Dispatchers.Main))
+        .map {
+            it.insertHeaderItem(Contents(0, "header", "header", "header", "header"))
+        }
 
-    private val _contentsLiveData: LiveData<PagedList<Contents>> =
-        LivePagedListBuilder(LocalDataSourceFactory(), config).build()
-
-    val contentsList : LiveData<PagedList<Contents>> = _contentsLiveData.map { it }
-
+    val pagingData = _pagingData.map { it }
 }

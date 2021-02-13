@@ -1,23 +1,25 @@
 package com.example.paging_library_example
 
-import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.util.Log
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.databinding.DataBindingUtil
-import androidx.lifecycle.Observer
-import androidx.paging.PagedListAdapter
+import androidx.lifecycle.lifecycleScope
+import androidx.paging.*
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.example.paging_library_example.api.Contents
 import com.example.paging_library_example.databinding.ActivityMainBinding
 import com.example.paging_library_example.databinding.ItemContentsListBinding
+import kotlinx.coroutines.flow.collect
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var binder : ActivityMainBinding
+    private lateinit var binder: ActivityMainBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -29,21 +31,30 @@ class MainActivity : AppCompatActivity() {
         initAdapter()
     }
 
-    private fun initAdapter(){
-        binder.list.adapter = ContentListAdapter()
+    private fun initAdapter() {
+        binder.list.adapter = ContentListAdapter().apply {
+            // paging Adapter가 paging의 로딩값을 가지고 있다..
+            addLoadStateListener {
+
+                //로딩 처리
+                if(it.append is LoadState.Error)
+                    Toast.makeText(this@MainActivity, "에러발생", Toast.LENGTH_SHORT).show()
+            }
+        }
         binder.list.layoutManager = LinearLayoutManager(this)
 
-        binder.vm?.contentsList?.observe(this, Observer {
-            Log.d("godgod", "${it.loadedCount}")
-            (binder.list.adapter as ContentListAdapter).submitList(it)
-            Log.d("godgod", "complete")
-        })
+        lifecycleScope.launchWhenResumed {
+            binder.vm?.pagingData?.collect {
+                (binder.list.adapter as ContentListAdapter).submitData(it)
+            }
+        }
+
     }
 }
 
-class ContentListAdapter : PagedListAdapter<Contents, ContentListAdapter.ContentVH>(diffUtil){
+class ContentListAdapter : PagingDataAdapter<Contents, ContentListAdapter.ContentVH>(diffUtil) {
 
-    companion object{
+    companion object {
         val diffUtil = object : DiffUtil.ItemCallback<Contents>() {
             override fun areItemsTheSame(oldItem: Contents, newItem: Contents): Boolean {
                 return oldItem.id == newItem.id
@@ -56,9 +67,9 @@ class ContentListAdapter : PagedListAdapter<Contents, ContentListAdapter.Content
         }
     }
 
-    inner class ContentVH(private val binder : ItemContentsListBinding) : RecyclerView.ViewHolder(binder.root){
-        fun bind(data : Contents?){
-            Log.d("godgod", "bind")
+    inner class ContentVH(private val binder: ItemContentsListBinding) :
+        RecyclerView.ViewHolder(binder.root) {
+        fun bind(data: Contents?) {
             data?.let {
                 binder.data = it
             }
@@ -66,8 +77,8 @@ class ContentListAdapter : PagedListAdapter<Contents, ContentListAdapter.Content
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ContentVH {
-        Log.d("godgod", "a")
-        val itemBinder = ItemContentsListBinding.inflate(LayoutInflater.from(parent.context), parent, false)
+        val itemBinder =
+            ItemContentsListBinding.inflate(LayoutInflater.from(parent.context), parent, false)
         return ContentVH(itemBinder)
     }
 
